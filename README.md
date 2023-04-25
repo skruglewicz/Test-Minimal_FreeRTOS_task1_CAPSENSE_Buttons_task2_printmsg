@@ -1,3 +1,165 @@
+# FreeRTOS Task Scheduler
+
+The PSoC 62S4 Pioneer Kit, which is a low-cost hardware platform designed for designing and hardware debugging applications using the PSoC 62 MCU.
+This is my design for a FreeRTOS Task Scheduler implementation to be used in my final design. It uses the example project CAPSENSE_Buttons_and_Slider_FreeRTOS as a base. I then added my design functionality to test FreeRTOS concepts that will be used in my design.
+
+Functional Spec:
+
+This minimal firmware test will:
+
+Using FreeRTOS to execute the tasks required by this application
+The following tasks are used:
+CAPSENSETm task: Initializes the CAPSENSETm hardware block, processes the touch input, and sends a command to the LED task to update the LED status.
+Modified to:
+uses the logic from the CAPSENSE to send a command to the new print task
+only processes the button touch input.
+Use the logic that  sends a command to the LED task to update the LED status to send a message to the PrintMSG TASK
+LED task: Not USED 
+Initializes the TCPWM in PWM mode for driving the LED, and updates the status of the LED based on the received command.
+PrintMSG TASK: NEW TASK to generate a message
+uses the logic from the LED task to print messages to the terminal.
+ Receives messages from other TASK
+
+
+A FreeRTOS-based timer is used for making the CAPSENSETm scan periodic; a queue is used for communication between the CAPSENSETm task and other task. FreeRTOSConfig.h contains the FreeRTOS settings and configuration.
+Task priority levels
+capsense=MAX-1
+print=MAX-2
+Technical  Spec:
+
+library(s) used. 
+
+MAIN.c
+
+#include "cybsp.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "capsense_task.h"
+#include "printmsg_task.h"
+
+capsense_task.c
+
+#include "capsense_task.h"
+#include "cybsp.h"
+#include "cyhal.h"
+#include "cycfg.h"
+#include "cycfg_capsense.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "timers.h"
+#include "printmsg_task.h"
+#include "string.h"
+
+printmsg_task.com
+
+#include "printmsg_task.h"
+#include "cybsp.h"
+#include "cyhal.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "cycfg.h"
+#include "cy_retarget_io.h"
+
+
+
+API Functions Used  (HAL or PDL)
+
+main.c
+cybsp_init()
+  __enable_irq()
+QueueCreate()
+xTaskCreate()()
+vTaskStartScheduler()
+capsense_task.c
+xTimerCreate()
+xTimerStart()
+xQueueReceive()
+Cy_CapSense_IsBusy()
+Cy_CapSense_ScanAllWidgets()
+Cy_CapSense_ProcessAllWidgets()
+Cy_CapSense_IsSensorActive()
+xQueueSendToBack()
+Cy_CapSense_Init()
+Cy_CapSense_Enable()
+Cy_CapSense_Wakeup()
+Cy_CapSense_InterruptHandler()
+printmsg_task.com
+cy_retarget_io_init()
+ xQueueReceive()
+printf(()
+
+MAIN.c
+
+Set task priority
+capsense=high-1
+print=high-2
+set stack sizes for task
+capsense=256
+print=minimal_stack_size
+set Queue lengths of message queues used
+Initialize the device and board peripherals
+Enable global interrupts
+Create the queues.
+print_command_data_q
+capsense_command_q
+Create the user tasks. calls to xTaskCreate()
+ "CapSense Task"
+" PrintMsg Task
+Start the RTOS scheduler. This function should never return 
+-vTaskStartScheduler();
+end of main
+
+
+CAPSENSE TASK 
+
+Initialize timer for periodic CapSense scan 
+Initialize CapSense block 
+Start the timer */
+LOOP
+Block until a CapSense command has been received over queue
+received command?
+CAPSENSE_SCAN  then call ScanAllWidgets
+When the scan is finished it fires the Scan Callback function (see below)
+CAPSENSE_PROCESS  then call ProcessAllWidgets
+call process_touch
+Determine which CAPESENSE button was pushed?
+Construct a message with the button that was pressed.
+Send the message to the PRINTMSG QUeue to be read by the PrintMSG task
+When the timer goes OFF then the TIMER Callback: 
+sends a CAPSENSE_SCAN command to the CAPSENSE Command Queue.
+If a scan ends the scan callback is called
+this sends a CAPSENSE_PROCESS command to the CAPSENSE Command Queue
+
+
+PRINTMSG TASK
+
+Initialize the debug uart
+Print  opening message
+LOOP
+Block until a command has been received over queue
+If a command is received 
+check the command
+if PRINT_MESSAGE is the command print the message of the command to the terminal.
+CODE
+
+I started with the example project CAPSENSE_Buttons_and_Slider_FreeRTOS and copied the project to Test-Minimal_FreeRTOS_task1_CAPSENSE_Buttons_task2_printmsg
+Code a new print task printmgs.c  and printmgs.h
+then I modified the capsense source file to only use the buttons. and send a print message to a newly developed  print task. 
+I had to send the print comand from the CAPSense Task to the Print Tas
+WRAPUP
+
+The takeaways from this test are:
+
+FreeRTOS task
+Creating a new FreeRTOS schedular task
+Task to Task communication using queues.
+
+
+What follows is the README for the Example firmware 
+
 # PSoC&trade; 6 MCU: CAPSENSE&trade; buttons and slider (FreeRTOS)
 
 This code example features a 5-segment linear slider and two CAPSENSE&trade; buttons. Button 0 turns the LED ON, Button 1 turns the LED OFF, and the slider controls the brightness of the LED. The code example also demonstrates interfacing with the CAPSENSE&trade; Tuner using the I2C interface.
